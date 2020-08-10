@@ -17,7 +17,7 @@ const LAST_MINOR_VERSIONS: [FactorioVersion; 2] = [
 	FactorioVersion::new(0,17,79),
 ];
 
-const START_GRAPH_FV: FactorioVersion = FactorioVersion::new(0,17,66);
+const START_GRAPH_FV: FactorioVersion = FactorioVersion::new(0,16,51);
 const END_GRAPH_FV: FactorioVersion = FactorioVersion::new(0,18,45);
 
 /// Generates a list of all FactorioVersions between START_GRAPH_FV and END_GRAPH_FV
@@ -342,7 +342,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		let template = HtmlEmitter {
 			svg,
 			sel_list_name: "Maps beginning with ".to_owned() + &fv.to_string(),
-			ext_descr: map_info.iter().map(|x| (map_name_to_post_link.get(&x.map_name).unwrap().to_string(), x.map_name.clone())).collect(),
+			ext_descr: map_info.iter().map(|x| (map_name_to_post_link.get(&x.map_name).unwrap_or(&"".to_owned()).to_string(), x.map_name.clone())).collect(),
 		};
 		html_emitters.push(template);
 	}
@@ -352,7 +352,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		let template = HtmlEmitter {
 			svg,
 			sel_list_name: data.0.map_name.replace(".zip",""),
-			ext_descr: vec![(map_name_to_post_link.get(&data.0.map_name).unwrap().to_string(), data.0.map_name.clone())],
+			ext_descr: vec![(map_name_to_post_link.get(&data.0.map_name).unwrap_or(&"".to_owned()).to_string(), data.0.map_name.clone())],
 		};
 		html_emitters.insert(0, template);
 	}
