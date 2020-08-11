@@ -357,18 +357,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		html_emitters.insert(0, template);
 	}
 
-	eprintln!("<select class=\"selections\">");
+	eprintln!("<select class=\"selections\" onchange = \"setSlide()\">");
 	for emitter in &html_emitters {
-		eprintln!("    <option onclick = \"setSlide()\">{}</option>", emitter.sel_list_name);
+		eprintln!("    <option>{}</option>", emitter.sel_list_name);
 	}
 	eprintln!("</select>");
-/*
-<div class = "slides">
-    <div class = "slide">
-        <img src="images/0.17-0.18 Poobers Beautiful Base.zip.svg"/>
-        <p>Some random content</p>
-    </div>
-*/
+	
 	eprintln!("<div class = \"slides\">");
 	for emitter in &html_emitters {
 		eprintln!("    <div class = \"slide\">");
