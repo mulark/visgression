@@ -10,15 +10,19 @@ use rusqlite::NO_PARAMS;
 use std::collections::HashMap;
 use std::collections::BTreeMap;
 
-//const LAST_MAJOR_VERSION: FactorioVersion = FactorioVersion::new(0,18,45???);
+/// The last major version of Factorio before 1.0.0
+const LAST_MAJOR_VERSION: FactorioVersion = FactorioVersion::new(0,18,47);
 
+/// The last versions of Factorio before the minor version incremented.
 const LAST_MINOR_VERSIONS: [FactorioVersion; 2] = [
 	FactorioVersion::new(0,16,51),
 	FactorioVersion::new(0,17,79),
 ];
 
+/// The earliest version of Factorio to consider when generating a chart.
 const START_GRAPH_FV: FactorioVersion = FactorioVersion::new(0,16,51);
-const END_GRAPH_FV: FactorioVersion = FactorioVersion::new(0,18,45);
+/// The latest version of Factorio to consider when generating a chart.
+const END_GRAPH_FV: FactorioVersion = FactorioVersion::new(1,0,0);
 
 /// Generates a list of all FactorioVersions between START_GRAPH_FV and END_GRAPH_FV
 /// Advances major/minor versions when necessary.
@@ -27,13 +31,18 @@ fn iter_factorio_versions() -> Vec<FactorioVersion> {
 	let mut cur_fv = START_GRAPH_FV;
 	loop {
 		all_ord_fv.push(cur_fv);
-		if LAST_MINOR_VERSIONS.contains(&cur_fv) {
+		if cur_fv == LAST_MAJOR_VERSION {
+			cur_fv.major += 1;
+			cur_fv.minor = 0;
+			cur_fv.patch = 0;
+		} else if LAST_MINOR_VERSIONS.contains(&cur_fv) {
 			cur_fv.minor += 1;
 			cur_fv.patch = 0;
 		} else {
 			cur_fv.patch += 1;
 		}
-		if cur_fv > END_GRAPH_FV {
+		if cur_fv == END_GRAPH_FV {
+			all_ord_fv.push(cur_fv);
 			break;
 		}
 	}
@@ -69,18 +78,27 @@ impl AddAssign for AvgData {
 	}
 }
 
+/// Information about a single map
 #[derive(Debug, Hash, PartialEq, Eq, Clone, PartialOrd, Ord)]
 struct MapInfo {
+	/// The name of the map
 	map_name: String,
+	/// The sha256 sum of the map
 	sha256: String,
 }
 
-fn query_db<P: AsRef<Path>>(db_loc: P) -> Result<BTreeMap<MapInfo, BTreeMap<FactorioVersion, AvgData>>, Box<dyn std::error::Error>> {
+/// Query the regression db as the provided path P.
+fn query_db<P: AsRef<Path>>(db_loc: P)
+	-> Result<BTreeMap<MapInfo, BTreeMap<FactorioVersion, AvgData>>, Box<dyn std::error::Error>>
+{
 	if !db_loc.as_ref().exists() {
-		panic!("Could not find a suitable regression test database. Try running factorio-benchmark-helper with the --regression-test flag, was passed {:?}", db_loc.as_ref());
+		panic!("Could not find a suitable regression test database.\
+		 Try running factorio-benchmark-helper with the --regression-test flag\
+		 , was passed {:?}"
+		 , db_loc.as_ref());
 	}
 	let db = Connection::open(db_loc)?;
-    // Define chart related sizes.
+    // Get the data from the db, in terms of ms
 	let mut stmt = db.prepare(
 r#"select factorio_version,
 avg(wholeUpdate)/1000000.0 as wholeUpdate,
@@ -117,7 +135,6 @@ order by scenario_ID, factorio_version;"#)?;
 				logisticManagerUpdate: row.get(7)?,
 				trains: row.get(8)?,
 				trainPathFinder: row.get(9)?,
-
 			},
 			MapInfo {
 				sha256: row.get(10)?,
@@ -170,7 +187,13 @@ fn aggregate_maps(maps: &BTreeMap<MapInfo, BTreeMap<FactorioVersion, AvgData>>)
 		}
 	}
 
-	let mut checkpoint_buckets: BTreeMap<FactorioVersion, BTreeMap<FactorioVersion, AvgData>> = BTreeMap::new();
+	// each checkpoint is a version with which a new map was included
+	// Ex: map 1 saved in 0.17.79, map 2 saved in 0.18.0, and all tested in 0.17.79-0.18.1
+	// then 2 checkpoints, 0.17.79 and 0.18.0 will be created. first map will contain
+	// 3 tested version as the average of the one map. second checkpoint will contain
+	// both maps but only 0.18.0+ averaged
+	let mut checkpoint_buckets: BTreeMap<FactorioVersion, BTreeMap<FactorioVersion, AvgData>> =
+		BTreeMap::new();
 	let mut info_buckets: BTreeMap<FactorioVersion, Vec<MapInfo>> = BTreeMap::new();
 	for checkpoint_fv in checkpoints {
 		let mut maps_per_checkpoint_inner_fv = HashMap::new();
@@ -219,7 +242,7 @@ fn gen_svg(collective_fv: Option<FactorioVersion>, map_infos: &[MapInfo], versio
     let height = 640;
     let (top, right, bottom, left) = (90, 200, 50, 60);
 	let mut fvs = iter_factorio_versions();
-
+	// only chart the versions with data
 	fvs.retain(|fv| versions_data.contains_key(&fv));
 	let mut data_points = Vec::new();
 	for (vers, data) in versions_data {
@@ -362,7 +385,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		eprintln!("    <option>{}</option>", emitter.sel_list_name);
 	}
 	eprintln!("</select>");
-	
+
 	eprintln!("<div class = \"slides\">");
 	for emitter in &html_emitters {
 		eprintln!("    <div class = \"slide\">");
